@@ -1,11 +1,13 @@
+import { Deque } from 'collections'
+
 type GetContactResponse = {
-  contact: Contact
+  contact: ContactRes
 }
 
-type Contact = {
+export type ContactRes = {
   primaryContainerId: number,
-  emails: string[],
-  phoneNumbers: string[],
+  emails: Deque<string>,
+  phoneNumbers: Deque<string>,
   secondaryContactIds: number[]
 }
 
