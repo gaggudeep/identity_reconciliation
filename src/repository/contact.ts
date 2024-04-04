@@ -34,7 +34,7 @@ const ContactRepo = sequelize.define<Model<Contact>, Contact>(
     'contact',
     {
         id: {
-            type: DataTypes.NUMBER,
+            type: DataTypes.INTEGER,
             primaryKey: true,
             autoIncrement: true,
         },
@@ -46,7 +46,7 @@ const ContactRepo = sequelize.define<Model<Contact>, Contact>(
             type: DataTypes.STRING,
         },
         linkedId: {
-            type: DataTypes.NUMBER,
+            type: DataTypes.INTEGER,
             field: "linked_id",
         },
         linkPrecedence: {

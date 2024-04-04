@@ -3,15 +3,10 @@ import GetContactsRequest from '../entity/request/get_contact_req.js'
 import ContactRepo, { Contact, LinkPrecedence } from '../repository/contact.js'
 import { FindOptions, Model, Op } from 'sequelize'
 
-type SeparatedContacts = {
-  primaryContacts: Contact[],
-  contacts: Contact[],
-}
-
 export const getContact = async (req: GetContactsRequest): Promise<GetContactResponse> => {
   console.log(`[SERVICE][${req.id}] get contact request`)
 
-  const opts: FindOptions = constructFindOptions(req)
+  const opts: FindOptions = constructEmailPhoneFindOptions(req)
   let contacts: Model<Contact>[] = []
 
   try {
@@ -20,6 +15,41 @@ export const getContact = async (req: GetContactsRequest): Promise<GetContactRes
     console.error(`[SERVICE][${req.id}] error finding matching contacts: ${err}`)
     throw err
   }
+  try {
+    const ids = []
+    const linkedIds = []
+    contacts.forEach((contact: Model<Contact>) => {
+      ids.push(contact.get().id)
+      if (contact.get().linkedId != null) {
+        linkedIds.push(contact.get().linkedId)
+      }
+    })
+    const linkedContacts: Model<Contact>[] = await ContactRepo.findAll({
+      where: {
+        [Op.and]: [
+          {
+            [Op.or]: [
+              { id: linkedIds },
+              { linkedId: ids }
+            ],
+          },
+          {
+            [Op.or]: [
+              { id: { [Op.notIn]: ids } },
+              { linkedId: { [Op.notIn]: linkedIds } },
+            ],
+          },
+        ],
+      }
+    })
+
+    contacts = contacts.concat(linkedContacts)
+    contacts = contacts.sort((a: Model<Contact>, b: Model<Contact>) => a.get().createdAt.getTime() - b.get().createdAt.getTime())
+  } catch (err) {
+    console.error(`[SERVICE][${req.id}] error finding matching contacts: ${err}`)
+    throw err
+  }
+
 
   if (contacts.length != 0) {
     try {
@@ -86,43 +116,32 @@ const populateNewContactAndConstructGetContactRes = async (req: GetContactsReque
   const res: GetContactResponse = {
     contact: contactRes,
   }
-  const sepContacts = contacts.reduce(
-    (sepContacts: SeparatedContacts, contactModel: Model<Contact>) => {
-      const contact: Contact = contactModel.get()
 
-      if (contact.linkPrecedence === LinkPrecedence.Primary) {
-        sepContacts.primaryContacts.push(contact)
-      }
-      sepContacts.contacts.push(contact)
-
-      return sepContacts
-    },
-    {
-      primaryContacts: [],
-      contacts: [],
-    }
-  )
+  const primaryContacts: Contact[] = contacts.map(contact => contact.get())
+    .filter(contact => contact.linkPrecedence == LinkPrecedence.Primary)
 
   try {
-    await makeContactsSecondary(sepContacts.primaryContacts)
+    await makeContactsSecondary(primaryContacts)
   } catch (err) {
     throw err
   }
 
-  const primaryContact = sepContacts.primaryContacts[0]
-  let anyEmailMatch = false
-  let anyPhoneNumMatch = false
+  const primaryContact = primaryContacts[0]
+  let emailPresent = req.email == null ? true : false
+  let phonePresent = req.phoneNumber == null ? true : false
 
   contactRes.emails.push(primaryContact.email)
   contactRes.phoneNumbers.push(primaryContact.phoneNumber)
   contactRes.primaryContainerId = primaryContact.id
 
-  sepContacts.contacts.forEach((contact: Contact) => {
-    if (contact.email === req.email && req.email != null) {
-      anyEmailMatch = true
+  contacts.forEach((contactMdl: Model<Contact>) => {
+    const contact: Contact = contactMdl.get()
+
+    if (contact.email === req.email) {
+      emailPresent = true
     }
-    if (contact.phoneNumber === req.phoneNumber && req.phoneNumber != null) {
-      anyPhoneNumMatch = true
+    if (contact.phoneNumber === req.phoneNumber) {
+      phonePresent = true
     }
     if (contact.id === primaryContact.id) {
       return
@@ -135,7 +154,7 @@ const populateNewContactAndConstructGetContactRes = async (req: GetContactsReque
     }
     contactRes.secondaryContactIds.push(contact.id)
   })
-  if (!anyEmailMatch || !anyPhoneNumMatch) {
+  if (!emailPresent || !phonePresent) {
     const addedContact: Contact = await addNewContact(req, LinkPrecedence.Secondary, primaryContact.id)
 
     if (addedContact.email != null) {
@@ -144,12 +163,16 @@ const populateNewContactAndConstructGetContactRes = async (req: GetContactsReque
     if (addedContact.phoneNumber != null) {
       contactRes.phoneNumbers.push(addedContact.phoneNumber)
     }
+    contactRes.secondaryContactIds.push(addedContact.id)
   }
+
+  contactRes.emails = [...new Set(contactRes.emails)]
+  contactRes.phoneNumbers = [...new Set(contactRes.phoneNumbers)]
 
   return res
 }
 
-function constructFindOptions(req: GetContactsRequest): FindOptions {
+const constructEmailPhoneFindOptions = (req: GetContactsRequest): FindOptions => {
   const orOperator = {}
 
   if (req.email != null) {
@@ -163,7 +186,6 @@ function constructFindOptions(req: GetContactsRequest): FindOptions {
     where: {
       [Op.or]: orOperator
     },
-    order: ['created_at']
   }
 }
 
@@ -171,13 +193,11 @@ const makeContactsSecondary = async (dateSortedContacts: Contact[]): Promise<voi
   if (dateSortedContacts.length <= 1) {
     return
   }
+  const ids = []
 
-  const ids = dateSortedContacts.map((contact: Contact, i: number) => {
-    if (i !== 0) {
-      return contact.id;
-    }
-  })
-
+  for (let i = 1; i < dateSortedContacts.length; i++) {
+    ids.push(dateSortedContacts[i].id)
+  }
   try {
     await ContactRepo.update(
       {
