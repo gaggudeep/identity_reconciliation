@@ -19,13 +19,13 @@ export enum LinkPrecedence {
 
 
 export type Contact = {
-    id: number,
+    id?: number,
     phoneNumber?: string,
     email?: string,
     linkedId?: number,
     linkPrecedence: LinkPrecedence,
-    createdAt: Date
-    updatedAt: Date
+    createdAt?: Date
+    updatedAt?: Date
     deletedAt?: Date
 }
 
