@@ -1,5 +1,12 @@
-type GetResponseContacts = {
-  
+type GetContactResponse = {
+  contact: Contact
 }
 
-export default GetResponseContacts
+type Contact = {
+  primaryContainerId: number,
+  emails: string[],
+  phoneNumbers: string[],
+  secondaryContactIds: number[]
+}
+
+export default GetContactResponse
