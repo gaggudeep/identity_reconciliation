@@ -1,6 +1,6 @@
 import GetContactResponse, { ContactRes } from '../entity/response/get_contact_res.js'
 import GetContactsRequest from '../entity/request/get_contact_req.js'
-import ContactRepo, { Contact, LinkPrecedence } from '../repository/contact.js'
+import contactRepo, { Contact, LinkPrecedence } from '../repository/contact_repo.js'
 import { FindOptions, Model, Op } from 'sequelize'
 
 export const getContact = async (req: GetContactsRequest): Promise<GetContactResponse> => {
@@ -10,49 +10,15 @@ export const getContact = async (req: GetContactsRequest): Promise<GetContactRes
   let contacts: Model<Contact>[] = []
 
   try {
-    contacts = await ContactRepo.findAll(opts)
+    contacts = await contactRepo.findAll(opts)
   } catch (err) {
     console.error(`[SERVICE][${req.id}] error finding matching contacts: ${err}`)
     throw err
   }
-  try {
-    const ids = []
-    const linkedIds = []
-    contacts.forEach((contact: Model<Contact>) => {
-      ids.push(contact.get().id)
-      if (contact.get().linkedId != null) {
-        linkedIds.push(contact.get().linkedId)
-      }
-    })
-    const linkedContacts: Model<Contact>[] = await ContactRepo.findAll({
-      where: {
-        [Op.and]: [
-          {
-            [Op.or]: [
-              { id: linkedIds },
-              { linkedId: ids }
-            ],
-          },
-          {
-            [Op.or]: [
-              { id: { [Op.notIn]: ids } },
-              { linkedId: { [Op.notIn]: linkedIds } },
-            ],
-          },
-        ],
-      }
-    })
-
-    contacts = contacts.concat(linkedContacts)
-    contacts = contacts.sort((a: Model<Contact>, b: Model<Contact>) => a.get().createdAt.getTime() - b.get().createdAt.getTime())
-  } catch (err) {
-    console.error(`[SERVICE][${req.id}] error finding matching contacts: ${err}`)
-    throw err
-  }
-
 
   if (contacts.length != 0) {
     try {
+      contacts = await populateLinkedContacts(contacts, req)
       return await populateNewContactAndConstructGetContactRes(req, contacts)
     } catch (err) {
       throw err
@@ -85,9 +51,9 @@ export const getContact = async (req: GetContactsRequest): Promise<GetContactRes
   }
 }
 
-const addNewContact = async (req: GetContactsRequest, linkPref: LinkPrecedence = LinkPrecedence.Primary, linkedId: number = null): Promise<Contact> => {
+const addNewContact = async (req: GetContactsRequest, linkPrecedence: LinkPrecedence = LinkPrecedence.Primary, linkedId: number = null): Promise<Contact> => {
   const contact: Contact = {
-    linkPrecedence: linkPref,
+    linkPrecedence: linkPrecedence,
   }
 
   if (linkedId != null) {
@@ -100,7 +66,7 @@ const addNewContact = async (req: GetContactsRequest, linkPref: LinkPrecedence =
     contact.phoneNumber = req.phoneNumber
   }
   try {
-    return (await ContactRepo.create(contact)).get()
+    return (await contactRepo.create(contact)).get()
   } catch (err) {
     throw err
   }
@@ -173,13 +139,13 @@ const populateNewContactAndConstructGetContactRes = async (req: GetContactsReque
 }
 
 const constructEmailPhoneFindOptions = (req: GetContactsRequest): FindOptions => {
-  const orOperator = {}
+  const orOperator = []
 
   if (req.email != null) {
-    orOperator['email'] = req.email
+    orOperator.push({ email: req.email })
   }
   if (req.phoneNumber != null) {
-    orOperator['phone_number'] = req.phoneNumber
+    orOperator.push({ phone_number: req.phoneNumber })
   }
 
   return {
@@ -199,7 +165,7 @@ const makeContactsSecondary = async (dateSortedContacts: Contact[]): Promise<voi
     ids.push(dateSortedContacts[i].id)
   }
   try {
-    await ContactRepo.update(
+    await contactRepo.update(
       {
         linkPrecedence: LinkPrecedence.Secondary,
         linkedId: dateSortedContacts[0].id
@@ -213,5 +179,43 @@ const makeContactsSecondary = async (dateSortedContacts: Contact[]): Promise<voi
   } catch (err) {
     throw err
   }
+}
+
+async function populateLinkedContacts(contacts: Model<Contact, Contact>[], req: GetContactsRequest) {
+  try {
+    const ids = []
+    const linkedIds = []
+    contacts.forEach((contact: Model<Contact>) => {
+      ids.push(contact.get().id)
+      if (contact.get().linkedId != null) {
+        linkedIds.push(contact.get().linkedId)
+      }
+    })
+    const linkedContacts: Model<Contact>[] = await contactRepo.findAll({
+      where: {
+        [Op.and]: [
+          {
+            [Op.or]: [
+              { id: linkedIds },
+              { linkedId: ids }
+            ],
+          },
+          {
+            [Op.or]: [
+              { id: { [Op.notIn]: ids } },
+              { linkedId: { [Op.notIn]: linkedIds } },
+            ],
+          },
+        ],
+      }
+    })
+
+    contacts = contacts.concat(linkedContacts)
+    contacts = contacts.sort((a: Model<Contact>, b: Model<Contact>) => a.get().createdAt.getTime() - b.get().createdAt.getTime())
+  } catch (err) {
+    throw err
+  }
+
+  return contacts
 }
 

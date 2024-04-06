@@ -1,5 +1,5 @@
-import { DataTypes, Model, ModelIndexesOptions, ModelOptions } from "sequelize";
-import sequelize from "../config/sequlelize.js";
+import { DataTypes, Model, ModelCtor, ModelIndexesOptions, ModelOptions, Sequelize } from "sequelize";
+import { sequelize } from "../config/sequlelize.js";
 
 const indexes: ModelIndexesOptions[] = [
     {
@@ -7,17 +7,13 @@ const indexes: ModelIndexesOptions[] = [
         fields: ['email', 'phone_number'],
     }
 ]
-
 const opts: ModelOptions = {
     indexes: indexes,
 }
-
 export enum LinkPrecedence {
     Primary = "primary",
     Secondary = "secondary"
 }
-
-
 export type Contact = {
     id?: number,
     phoneNumber?: string,
@@ -28,9 +24,7 @@ export type Contact = {
     updatedAt?: Date
     deletedAt?: Date
 }
-
-
-const ContactRepo = sequelize.define<Model<Contact>, Contact>(
+const contactRepo = sequelize.define(
     'contact',
     {
         id: {
@@ -73,13 +67,4 @@ const ContactRepo = sequelize.define<Model<Contact>, Contact>(
     opts,
 )
 
-try {
-    await sequelize.sync()
-    console.log('Contact table created succesfully')
-
-} catch (err) {
-    console.error('unable to create Contact table: ', err)
-    process.exit(1)
-}
-
-export default ContactRepo
+export default contactRepo
