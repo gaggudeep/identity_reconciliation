@@ -8,6 +8,13 @@
 - Docker (Optional) 
 ```
 
+## Getting started
+- By default the API endponts are exposed at http://localhost:8844
+- The API service can run in a Docker container along with the Postgres image:
+```sh
+docker-compose up -d
+```
+
 ## Test
 ```sh
 npm run test
