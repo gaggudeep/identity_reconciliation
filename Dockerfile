@@ -12,6 +12,8 @@ FROM node:20-alpine AS runner
 
 WORKDIR /app
 
+ENV NODE_ENV production
+
 COPY --from=builder /app/dist ./dist
 COPY package*.json ./
 RUN npm install --production

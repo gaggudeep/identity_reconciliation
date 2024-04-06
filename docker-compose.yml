@@ -14,7 +14,6 @@ services:
     ports:
       - "8844:8844"
     environment:
-      - NODE_ENV=production
       - DB_ADDR=postgres
       - DB_NAME=identity_reconciliation
       - DB_USER=postgres
