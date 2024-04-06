@@ -1,3 +1,4 @@
+version: '3'
 services:
   postgres:
     image: 'postgres:alpine3.19'
@@ -8,3 +9,15 @@ services:
       - '5432:5432'
     volumes:
       - './sql/init.sql:/docker-entrypoint-initdb.d/1.sql'
+  identity_reconciliation:
+    build: .
+    ports:
+      - "8844:8844"
+    environment:
+      - NODE_ENV=production
+      - DB_ADDR=postgres
+      - DB_NAME=identity_reconciliation
+      - DB_USER=postgres
+      - DB_PASS=password
+    depends_on:
+      - postgres

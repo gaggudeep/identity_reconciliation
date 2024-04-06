@@ -1,5 +1,4 @@
 import './config/env.js'
-
 import express from 'express'
 import morgan from 'morgan'
 import { contact } from './controller/contact_ctrl.js'
