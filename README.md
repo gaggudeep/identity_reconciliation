@@ -37,6 +37,7 @@ npm run build
 ```
 
 ### Production build run
+- Make sure NODE_ENV env var is set to `production`
 ```sh
 npm run prod_start
 ```
