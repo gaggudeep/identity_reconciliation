@@ -7,6 +7,7 @@
   "scripts": {
     "build": "tsc --build",
     "start": "tsx ./src/app.ts",
+    "prod_start": "node ./dist/app.js",
     "test": "jest --coverage",
     "test:watch": "jest --watch"
   },
