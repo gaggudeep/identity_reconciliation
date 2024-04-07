@@ -4,7 +4,7 @@
 ```
 - NodeJS (20)
 - npm
-- Postgres
+- PostgreSQL
 - Docker (Optional) 
 ```
 
