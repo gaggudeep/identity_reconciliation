@@ -20,13 +20,13 @@ docker-compose up -d
 npm run test
 ```
 
-## Build
+## Install dependencies
 ```sh
 npm install
 ```
 
 ### Run
-- Ensure Postgres is running
+- **NOTE:** Ensure Postgres is running
 ```sh
 npm run start
 ```
